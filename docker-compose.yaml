@@ -1,0 +1,77 @@
+version: '3.5'
+services:
+  jadepool-postgres:
+    image: 'postgres'
+    network_mode: 'bridge'
+    ports:
+      - 5432:5432
+      - 6379:6379
+      - 27017:27017
+      - 8899:8899
+      - 8500:8500
+    container_name: 'jadepool-postgres'
+    volumes:
+      - './init.sql:/docker-entrypoint-initdb.d/init.sql'
+      - '/data/db-postgres/db:/var/lib/postgresql/data/:rw'
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    environment:
+        - POSTGRES_USER=saas
+        - POSTGRES_PASSWORD=123456
+        - POSTGRES_DB=saas
+
+  jadepool-redis:
+    image: 'redis'
+    network_mode: 'service:jadepool-postgres'
+    container_name: 'jadepool-redis'
+    healthcheck:
+        test: ["CMD", "redis-cli","ping"]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+
+  jadepool-mongodb:
+    image: 'mongo:3.6'
+    container_name: 'jadepool-mongodb'
+    network_mode: 'service:jadepool-postgres'
+    restart: on-failure
+    volumes:
+      - '/data/db-data/configdb:/data/configdb:rw'
+      - '/data/db-data/db:/data/db:rw'
+    healthcheck:
+        test: echo 'db.runCommand("ping").ok' | mongo localhost:27017/test --quiet
+        interval: 30s
+        timeout: 10s
+        retries: 5
+
+  jadepool-seed:
+    image: 'registry.cn-hangzhou.aliyuncs.com/jadepool/jadepool-seed:R1.2.1.190121'
+    container_name: 'jadepool-seed'
+    network_mode: 'service:jadepool-postgres'
+    restart: on-failure
+    volumes:
+      - '~/data/seed-data:/usr/app/data:rw'
+
+  jadepool-callback:
+    image: 'registry.cn-hangzhou.aliyuncs.com/jadepool/jadepool-callback:1.0.0'
+    container_name: 'jadepool-callback'
+    network_mode: 'service:jadepool-postgres'
+    restart: on-failure
+    volumes:
+      - '/data/logs-callback:/usr/src/app/logs:rw'
+    healthcheck:
+        test: ["CMD", "curl", "-X", "POST" , "http://localhost:9008"]
+        interval: 30s
+        timeout: 10s
+        retries: 5
+  
+  jadepool-consul:
+    image: 'consul'
+    container_name: 'jadepool-consul'
+    network_mode: 'service:jadepool-postgres'
+    restart: on-failure
+    environment:
+        - CONSUL_BIND_INTERFACE=eth0
