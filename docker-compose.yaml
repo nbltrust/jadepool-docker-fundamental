@@ -73,5 +73,3 @@ services:
     container_name: 'jadepool-consul'
     network_mode: 'service:jadepool-postgres'
     restart: on-failure
-    environment:
-        - CONSUL_BIND_INTERFACE=eth0
