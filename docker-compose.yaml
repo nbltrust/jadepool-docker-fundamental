@@ -73,3 +73,5 @@ services:
     container_name: 'jadepool-consul'
     network_mode: 'service:jadepool-postgres'
     restart: on-failure
+    logging:
+        driver: "none"
